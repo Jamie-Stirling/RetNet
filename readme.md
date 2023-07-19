@@ -11,7 +11,7 @@ The contributors(s) to this repository are not authors of the original paper. Al
 The purpose of this repository is to aid scientific and technological understanding and advancement.
 
 
-## Features implemented:
+## Features implemented
 * Single-scale and MultiScale retention:
   - parallel paradigm
   - recurrent paradigm
@@ -26,11 +26,13 @@ The purpose of this repository is to aid scientific and technological understand
 ## Differences to original paper
 While the paper contains no explicit references to complex algebra, this implementation uses `torch.ComplexFloat` (64-bit) for parameters and data throughput. This has some limitations due to there not yet being torch support for half-precision complex types. It also requires twice the amount of memory as real-valued data at 32-bit precision.
 
-
 ## Known Issues
 * Error propagation: it appears in this implementation, errors propagate differently between the parallel usage and the recurrant usage. It's not clear whether this is a bug yet, but it sometimes causes tests to fail.
 
-## References:
+## Contribution
+If you would like to contribute to this project, please fork it and submit a pull request for review.
+
+## References
 ```
 @misc{sun2023retentive,
       title={Retentive Network: A Successor to Transformer for Large Language Models}, 
