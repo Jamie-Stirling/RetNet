@@ -16,6 +16,9 @@ The purpose of this repository is to aid scientific and technological understand
   - parallel paradigm
   - recurrent paradigm
 * Multi-layer retentive network with FFN and LayerNorm
+  - parallel paradigm
+  - recurrent paradigm
+* Causal language model (CLM) built on top of the the retentive network
 
 ## Features coming soon:
 * chunkwise recurrent paradigm (for efficient inference)
