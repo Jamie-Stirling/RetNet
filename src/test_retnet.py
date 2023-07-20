@@ -73,16 +73,29 @@ class TestRetNet(unittest.TestCase):
         self.assertTrue((Y_parallel - Y_recurrent).abs().max() < 1e-4)
     
     def test_training(self):
-        dummy_input = torch.randint(0, 10, (2, 6))
+        batch_size = 2
+        layers = 3
+        hidden_dim = 16
+        heads = 4
+        sequence_length = 6
+        ffn_size = 32
+        vocab_size = 10
+        bos_idx = 0
+
+        data = torch.randint(0, vocab_size, (batch_size, sequence_length - 1))
+        X = torch.cat([torch.ones(batch_size, 1).long() * bos_idx, data[:,:-1]], dim=1)
+        Y = data
+
         # verify we can overfit autoregressive model
-        model = RetNetCLM(3, 16, 32, 4, 10)
+        model = RetNetCLM(layers, hidden_dim, ffn_size, heads, vocab_size)
+
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
         criterion = torch.nn.CrossEntropyLoss()
-        initial_loss = criterion(model(dummy_input).reshape(-1, 10), dummy_input.reshape(-1))
+        initial_loss = criterion(model(X).reshape(-1, 10), Y.reshape(-1))
         for i in range(10):
             optimizer.zero_grad()
-            output = model(dummy_input)
-            loss = criterion(output.reshape(-1, 10), dummy_input.reshape(-1))
+            output = model(X)
+            loss = criterion(output.reshape(-1, 10), Y.reshape(-1))
             loss.backward()
             optimizer.step()
         self.assertTrue((loss < initial_loss).item())
