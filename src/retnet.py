@@ -13,6 +13,21 @@ class RetNet(nn.Module):
         self.heads = heads
         self.chunk_size = chunk_size
 
+        self.q_proj = nn.Linear(hidden_dim, hidden_dim)
+        self.k_proj = nn.Linear(hidden_dim, hidden_dim) 
+        self.v_proj = nn.Linear(hidden_dim, hidden_dim)
+
+        #gamma logic improved version
+        #Logarithmic spacing should work better by allocating more capacity to earlier heads resulting in gammas that decay slower for the first heads, and faster for later ones.
+        betas = torch.linspace(np.log2(1/32), np.log2(1/512), self.heads) 
+        gammas = 1 - 2 ** -betas
+
+        #gamma logic as per paper
+        #gammas = torch.linspace(1-2**-5, 1-2**-5-self.heads)
+        
+        #Register it as a buffered parameter so it gets saved with the model
+        self.register_buffer('gammas', gammas)
+
         self.retentions = nn.ModuleList([
             MultiScaleRetention(hidden_dim, heads)
             for _ in range(layers)
@@ -57,14 +72,15 @@ class RetNet(nn.Module):
         v = self.v_proj(x)
         
         # Split heads
-        q = q.view(batch_size, seq_len, self.heads, -1).transpose(1,2) # (batch_size, num_heads, seq_len, head_dim)
-        k = k.view(batch_size, seq_len, self.heads, -1).transpose(1,2) 
-        v = v.view(batch_size, seq_len, self.heads, -1).transpose(1,2)
+        q = q.view(batch_size, seq_len, self.heads, -1)
+        k = k.view(batch_size, seq_len, self.heads, -1)
+        v = v.view(batch_size, seq_len, self.heads, -1)
     
         return q, k, v
     
     def forward_chunkwise(self, x):
         batch_size, seq_len, hidden_dim = x.shape
+        gammas = self.gammas
         
         # Divide sequence into chunks
         num_chunks = seq_len // self.chunk_size
@@ -80,17 +96,17 @@ class RetNet(nn.Module):
             start = i*self.chunk_size
             end = min(start + self.chunk_size, seq_len)
             x_chunk = x[:, start:end]
+
+            q_chunk, k_chunk, v_chunk = self.get_qkv(x_chunk)
             
             # Compute inner-chunk retention in parallel 
-            q_chunk, k_chunk, v_chunk = self.get_qkv(x_chunk)
             retention_inner = torch.einsum('bhd,bhd->bh', q_chunk, k_chunk) * v_chunk
             
             # Compute cross-chunk retention recurrently
-            q_cross = self.get_q(x_chunk)
-            retention_cross = q_cross @ s
+            retention_cross = q_chunk @ s
             
             # Update state
-            s = self.gamma * s + torch.einsum('bhd,bhd->bh', k_chunk, v_chunk)
+            s = gammas * s + torch.einsum('bhd,bhd->bh', k_chunk, v_chunk)
             
             # Concat outputs to get the benefits of both parallelism (inner-chunk) and recurrence (cross-chunk) for long sequences.
             out = torch.cat([retention_inner, retention_cross], dim=1)
