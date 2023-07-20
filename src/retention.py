@@ -32,7 +32,7 @@ class SimpleRetention(nn.Module):
         self.W_V = nn.Parameter(torch.randn(hidden_size, hidden_size, dtype=self.real_type) / hidden_size)
         
 
-        self.theta = torch.randn(hidden_size) / hidden_size
+        self.theta = torch.rand(hidden_size) * 2 * math.pi
         self.theta = nn.Parameter(self.theta)
 
         
@@ -94,6 +94,46 @@ class SimpleRetention(nn.Module):
         
         return (Q.unsqueeze(1) @ s_n).squeeze(1), s_n
     
+    def forward_chunkwise(self, x_i, r_i_1, i, chunk_size):
+        """
+        Chunkwise representation of the retention mechanism.
+        x_i: (batch_size, chunk_size, hidden_size)
+        r_i_1: (batch_size, hidden_size, hidden_size)
+        i: int
+        chunk_size: int
+        """
+        if x_i.dtype != self.complex_type:
+            x_i = torch.complex(x_i, torch.zeros_like(x_i)).to(self.complex_type)
+        
+        ns = torch.arange((i-1) * chunk_size + 1, (i) * chunk_size + 1, dtype=torch.long, device=x_i.device)
+ 
+        Theta = []
+        for n in ns:
+            Theta.append(torch.exp(self.i.to(x_i) * n * self.theta))
+        
+        Theta = torch.stack(Theta, dim=0)
+        Theta_bar = Theta.conj()
+
+        Q = (x_i @ self.W_Q.to(self.complex_type)) * Theta.unsqueeze(0)
+        K = (x_i @ self.W_K.to(self.complex_type)) * Theta_bar.unsqueeze(0)
+        V = x_i @ self.W_V.to(self.complex_type)
+
+        # R = K^T @ V + gamma^chunk_size * R_i_1
+        r_i = K.permute(0, 2, 1) @ V + self.gamma ** chunk_size * r_i_1
+        
+        e = torch.zeros(1, chunk_size, self.hidden_size, dtype=self.complex_type, device=x_i.device)
+        # e[:, i, j] = gamma ^ (i + 1)
+        for _i in range(chunk_size):
+            e[:, _i, :] = self.gamma ** (_i + 2)
+
+        D = self._get_D(chunk_size)
+        
+        inner_chunk = ((Q @ K.permute(0, 2, 1)) * D.unsqueeze(0)) @ V
+        
+        cross_chunk = (Q @ r_i) * e
+
+        return inner_chunk + cross_chunk, r_i
+
     def _get_D(self, sequence_length):
         # D[n,m] = gamma ** (n - m) if n >= m else 0
         D = torch.zeros((sequence_length, sequence_length), dtype=self.real_type, requires_grad=False)
