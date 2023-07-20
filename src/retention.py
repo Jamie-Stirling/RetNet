@@ -137,7 +137,7 @@ class MultiScaleRetention(nn.Module):
 
     def forward(self, X):
         """
-        parallel representation of the multi-scale attention mechanism
+        parallel representation of the multi-scale retention mechanism
         """
         if X.dtype != self.complex_type:
             X = torch.complex(X, torch.zeros_like(X)).to(self.complex_type)
@@ -154,7 +154,7 @@ class MultiScaleRetention(nn.Module):
     
     def forward_recurrent(self, x_n, s_n_1s, n):
         """
-        recurrent representation of the multi-scale attention mechanism
+        recurrent representation of the multi-scale retention mechanism
         """
         if x_n.dtype != self.complex_type:
             x_n = torch.complex(x_n, torch.zeros_like(x_n)).to(self.complex_type)

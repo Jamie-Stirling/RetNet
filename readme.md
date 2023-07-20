@@ -16,6 +16,9 @@ The purpose of this repository is to aid scientific and technological understand
   - parallel paradigm
   - recurrent paradigm
 * Multi-layer retentive network with FFN and LayerNorm
+  - parallel paradigm
+  - recurrent paradigm
+* Causal language model (CLM) built on top of the the retentive network
 
 ## Features coming soon:
 * chunkwise recurrent paradigm (for efficient inference)
@@ -27,7 +30,7 @@ The purpose of this repository is to aid scientific and technological understand
 While the paper contains no explicit references to complex algebra, this implementation uses `torch.ComplexFloat` (64-bit) for parameters and data throughput. This has some limitations due to there not yet being torch support for half-precision complex types. It also requires twice the amount of memory as real-valued data at 32-bit precision.
 
 ## Known Issues
-* Error propagation: it appears in this implementation, errors propagate differently between the parallel usage and the recurrant usage. It's not clear whether this is a bug yet, but it sometimes causes tests to fail.
+* Error propagation: it appears in this implementation, errors propagate differently between the parallel usage and the recurrant usage. It's not yet clear whether this is a bug, or instead a result of imprecision in floating point arithmetic, but it sometimes causes tests to fail.
 
 ## Contribution
 If you would like to contribute to this project, please fork it and submit a pull request for review.
