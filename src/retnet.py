@@ -5,12 +5,13 @@ from retention import MultiScaleRetention
 from util import ComplexFFN, ComplexGroupNorm, ComplexLayerNorm
 
 class RetNet(nn.Module):
-    def __init__(self, layers, hidden_dim, ffn_size, heads):
+    def __init__(self, layers, hidden_dim, ffn_size, heads, chunk_size):
         super(RetNet, self).__init__()
         self.layers = layers
         self.hidden_dim = hidden_dim
         self.ffn_size = ffn_size
         self.heads = heads
+        self.chunk_size = chunk_size
 
         self.retentions = nn.ModuleList([
             MultiScaleRetention(hidden_dim, heads)
@@ -47,6 +48,56 @@ class RetNet(nn.Module):
         
         return x_n, s_ns
 
+    def get_qkv(self, x):
+        batch_size, seq_len, hidden_dim = x.shape
+        
+        # Linear projections
+        q = self.q_proj(x) # (batch_size, seq_len, hidden_dim) 
+        k = self.k_proj(x)
+        v = self.v_proj(x)
+        
+        # Split heads
+        q = q.view(batch_size, seq_len, self.heads, -1).transpose(1,2) # (batch_size, num_heads, seq_len, head_dim)
+        k = k.view(batch_size, seq_len, self.heads, -1).transpose(1,2) 
+        v = v.view(batch_size, seq_len, self.heads, -1).transpose(1,2)
+    
+        return q, k, v
+    
+    def forward_chunkwise(self, x):
+        batch_size, seq_len, hidden_dim = x.shape
+        
+        # Divide sequence into chunks
+        num_chunks = seq_len // self.chunk_size
+        if seq_len % self.chunk_size != 0:
+            num_chunks += 1
+        
+        # Initialize state 
+        s = torch.zeros(batch_size, hidden_dim, hidden_dim, device=x.device)
+        
+        outputs = []
+        for i in range(num_chunks):
+            # Get current chunk
+            start = i*self.chunk_size
+            end = min(start + self.chunk_size, seq_len)
+            x_chunk = x[:, start:end]
+            
+            # Compute inner-chunk retention in parallel 
+            q_chunk, k_chunk, v_chunk = self.get_qkv(x_chunk)
+            retention_inner = torch.einsum('bhd,bhd->bh', q_chunk, k_chunk) * v_chunk
+            
+            # Compute cross-chunk retention recurrently
+            q_cross = self.get_q(x_chunk)
+            retention_cross = q_cross @ s
+            
+            # Update state
+            s = self.gamma * s + torch.einsum('bhd,bhd->bh', k_chunk, v_chunk)
+            
+            # Concat outputs to get the benefits of both parallelism (inner-chunk) and recurrence (cross-chunk) for long sequences.
+            out = torch.cat([retention_inner, retention_cross], dim=1)
+            outputs.append(out)
+            
+        return torch.cat(outputs, dim=1)
+        
 class RetNetCLM(nn.Module):
     def __init__(self, layers, hidden_dim, ffn_size, heads, vocab_size):
         """
