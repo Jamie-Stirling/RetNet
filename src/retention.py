@@ -150,7 +150,7 @@ class MultiScaleRetention(nn.Module):
         Y = torch.cat(Y, dim=2)
         Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(X.shape)
 
-        return (self.swish(X @ self.W_G) + Y) @ self.W_O
+        return (self.swish(X @ self.W_G.to(self.complex_type)) + Y) @ self.W_O.to(self.complex_type)
     
     def forward_recurrent(self, x_n, s_n_1s, n):
         """
@@ -172,4 +172,4 @@ class MultiScaleRetention(nn.Module):
         
         Y = torch.cat(Y, dim=1)
         Y = self.group_norm(Y)
-        return (self.swish(x_n @ self.W_G) + Y) @ self.W_O, s_ns
+        return (self.swish(x_n @ self.W_G.to(self.complex_type)) + Y) @ self.W_O.to(self.complex_type), s_ns
