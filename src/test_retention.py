@@ -24,7 +24,7 @@ class TestSimpleRetention(unittest.TestCase):
         X = torch.rand(batch_size, sequence_length, hidden_size)
         retention = SimpleRetention(hidden_size, gamma)
 
-        s_n_1 = torch.eye(hidden_size, dtype=torch.complex64).unsqueeze(0).repeat(batch_size, 1, 1)
+        s_n_1 = torch.zeros(hidden_size, dtype=torch.complex64).unsqueeze(0).repeat(batch_size, 1, 1)
         Y = []
         for i in range(sequence_length):
             y_n, s_n = retention.forward_recurrent(X[:, i, :], s_n_1, i+1)
