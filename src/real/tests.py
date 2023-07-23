@@ -1,7 +1,9 @@
 import unittest
+
 import torch
 
 from retention import SimpleRetention, MultiScaleRetention
+from retnet import RetNet
 
 class TestRetention(unittest.TestCase):
 
@@ -25,7 +27,6 @@ class TestRetention(unittest.TestCase):
         for i in range(sequence_length):
             y_n, s_n = sr.forward_recurrent(X[:, i:i+1, :], s_n_1, i)
             Y_recurrent.append(y_n)
-            print(y_n.shape, s_n.shape)
             s_n_1 = s_n
 
         Y_recurrent = torch.concat(Y_recurrent, dim=1)
@@ -53,6 +54,41 @@ class TestRetention(unittest.TestCase):
         Y_recurrent = []
         for i in range(sequence_length):
             y_n, s_ns = retention.forward_recurrent(X[:, i:i+1, :], s_n_1s, i)
+            Y_recurrent.append(y_n)
+            s_n_1s = s_ns
+
+        Y_recurrent = torch.concat(Y_recurrent, dim=1)
+
+        self.assertTrue(torch.allclose(Y_parallel, Y_recurrent, atol=1e-5))
+
+class TestRetNet(unittest.TestCase):
+
+    def test_retnet(self):
+        """
+        verify that the parallel and recurrent implementations of RetNet are identical
+        """
+        batch_size = 2
+        hidden_size = 36
+        sequence_length = 5
+        heads = 3
+        layers = 4
+        ffn_size = 128
+
+        X = torch.rand(batch_size, sequence_length, hidden_size)
+        retnet = RetNet(layers, hidden_size, ffn_size, heads)
+
+        Y_parallel = retnet(X)
+
+        s_n_1s = [
+            [
+                torch.zeros(hidden_size // heads, hidden_size // heads).unsqueeze(0).repeat(batch_size, 1, 1)
+                for _ in range(heads)
+            ]
+            for _ in range(layers)
+        ]
+        Y_recurrent = []
+        for i in range(sequence_length):
+            y_n, s_ns = retnet.forward_recurrent(X[:, i:i+1, :], s_n_1s, i)
             Y_recurrent.append(y_n)
             s_n_1s = s_ns
 
