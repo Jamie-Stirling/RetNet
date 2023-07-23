@@ -26,9 +26,9 @@ The purpose of this repository is to aid scientific and technological understand
 * See scripts prefixed with `test_` for examples of basic usage
 
 ## Positional Encodings
-The main implementation in `src/` uses `torch.ComplexFloat` (64-bit) for parameters and data throughput. This has some limitations due to there not yet being torch support for half-precision complex types. It also requires twice the amount of memory as real-valued data at 32-bit precision.
+The main implementation in `src/` uses complex values to encode position, which requires parameter and data throughput types to be `torch.ComplexFloat` (64-bit). This has some limitations due to there not yet being torch support for half-precision complex types. It also requires twice the amount of memory as real-valued data at 32-bit precision.
 
-There is now also an equivalent real-valued implementation in `/src/real/` which [Microsoft's xPos](https://github.com/microsoft/torchscale/blob/main/torchscale/component/xpos_relative_position.py) for positional encoding. This suffers less from value instability so is recommended for experiments with RetNet.
+There is now also an equivalent real-valued implementation in `/src/real/` which [Microsoft's xPos](https://github.com/microsoft/torchscale/blob/main/torchscale/component/xpos_relative_position.py) for positional encoding. This suffers less from value instability so is recommended for experiments with RetNet, and is also more memory-efficient.
 
 ## Known Issues
 * Error propagation: it appears in the main (complex-valued) implementation, errors propagate differently between the parallel usage and the recurrant usage. It's not yet clear whether this is a bug, or instead a result of imprecision in floating point arithmetic, but it sometimes causes tests to fail.
