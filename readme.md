@@ -26,7 +26,7 @@ The purpose of this repository is to aid scientific and technological understand
 * See scripts prefixed with `test_` for examples of basic usage
 
 ## Positional Encodings
-The main implementation implementation in `src/` uses [Microsoft's xPos](https://github.com/microsoft/torchscale/blob/main/torchscale/component/xpos_relative_position.py) for positional encoding.
+The main implementation in `src/` uses [Microsoft's xPos](https://github.com/microsoft/torchscale/blob/main/torchscale/component/xpos_relative_position.py) for positional encoding.
 
 The implementation in `src/complex` uses complex values to encode position, which requires parameter and data throughput types to be `torch.ComplexFloat` (64-bit). This has some limitations due to there not yet being torch support for half-precision complex types. It also requires twice the amount of memory as real-valued data at 32-bit precision.
 
