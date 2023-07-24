@@ -9,11 +9,12 @@ class TestRetention(unittest.TestCase):
 
     def test_simple(self):
         """
-        verify that the parallel and recurrent implementations of SimpleRetention are identical
+        verify that the three implementations of SimpleRetention are identical
         """
         batch_size = 4
         sequence_length = 12
         hidden_size = 32
+        chunk_size = 4
 
         gamma = 0.9
 
@@ -22,7 +23,7 @@ class TestRetention(unittest.TestCase):
 
         Y_parallel = sr(X)
 
-        s_n_1 = torch.zeros(hidden_size).unsqueeze(0).repeat(batch_size, 1, 1)
+        s_n_1 = torch.zeros(hidden_size, hidden_size).unsqueeze(0).repeat(batch_size, 1, 1)
         Y_recurrent = []
         for i in range(sequence_length):
             y_n, s_n = sr.forward_recurrent(X[:, i:i+1, :], s_n_1, i)
@@ -31,7 +32,20 @@ class TestRetention(unittest.TestCase):
 
         Y_recurrent = torch.concat(Y_recurrent, dim=1)
 
+        r_n_1 = torch.zeros(hidden_size, hidden_size).unsqueeze(0).repeat(batch_size, 1, 1)
+        Y_chunkwise = []
+        for i in range(sequence_length // chunk_size):
+            y_i, r_i = sr.forward_chunkwise(X[:, i*chunk_size:(i+1)*chunk_size, :], r_n_1, i)
+            Y_chunkwise.append(y_i)
+            r_n_1 = r_i
+        
+        Y_chunkwise = torch.concat(Y_chunkwise, dim=1)
+
+        print((Y_parallel - Y_chunkwise).abs().max())
+
+
         assert torch.allclose(Y_parallel, Y_recurrent, atol=1e-5)
+        assert torch.allclose(Y_parallel, Y_chunkwise, atol=1e-5)
   
     def test_multiscale(self):
         """

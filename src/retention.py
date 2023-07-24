@@ -65,6 +65,40 @@ class SimpleRetention(nn.Module):
         
         return (Q @ s_n), s_n
     
+    def forward_chunkwise(self, x_i, r_i_1, i):
+        """
+        Chunkwise representation of the retention mechanism.
+        x_i: (batch_size, chunk_size, hidden_size)
+        r_i_1: (batch_size, hidden_size, hidden_size)
+        """
+        batch, chunk_size, _ = x_i.shape
+        D = self._get_D(chunk_size)
+
+        Q = (x_i @ self.W_Q)
+        K = (x_i @ self.W_K)
+
+        Q = self.xpos(Q, i * chunk_size)
+        K = self.xpos(K, i * chunk_size, downscale=True)
+
+        V = x_i @ self.W_V
+
+        r_i = self.gamma ** chunk_size * r_i_1 + (K.transpose(-1, -2) @ V)
+
+        inner_chunk = ((Q @ K.transpose(-1, -2)) * D.unsqueeze(0)) @ V
+        cross_chunk = (Q @ r_i)
+
+        #e[i,j] = gamma ** (i+1)
+        e = torch.zeros_like(cross_chunk)
+        for _i in range(chunk_size):
+            e[_i, :] = self.gamma ** (_i+1)
+        
+        cross_chunk = cross_chunk * e
+
+        return inner_chunk + cross_chunk, r_i
+
+
+
+    
     def _get_D(self, sequence_length):
         # D[n,m] = gamma ** (n - m) if n >= m else 0
         D = torch.zeros((sequence_length, sequence_length), requires_grad=False)
