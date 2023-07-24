@@ -96,9 +96,6 @@ class SimpleRetention(nn.Module):
 
         return inner_chunk + cross_chunk, r_i
 
-
-
-    
     def _get_D(self, sequence_length):
         n = torch.arange(sequence_length).unsqueeze(1)
         m = torch.arange(sequence_length).unsqueeze(0)
@@ -109,6 +106,8 @@ class SimpleRetention(nn.Module):
         D[D != D] = 0
 
         return D
+
+
 class MultiScaleRetention(nn.Module):
     def __init__(self, hidden_size, heads):
         """
@@ -169,3 +168,26 @@ class MultiScaleRetention(nn.Module):
         Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_n.shape)
         
         return (self.swish(x_n @ self.W_G) * Y) @ self.W_O, s_ns
+
+    def forward_chunkwise(self, x_i, r_i_1s, i):
+        """
+        chunkwise representation of the multi-scale retention mechanism
+        x_i: (batch_size, chunk_size, hidden_size)
+        r_i_1s: (batch_size, heads, head_size, head_size)
+        """
+        batch, chunk_size, _ = x_i.shape
+
+        # apply each individual retention mechanism to a slice of X
+        Y = []
+        r_is = []
+        for j in range(self.heads):
+            y, r_i = self.retentions[j].forward_chunkwise(
+                x_i[:, :, j*self.head_size:(j+1)*self.head_size], r_i_1s[j], i
+                )
+            Y.append(y)
+            r_is.append(r_i)
+        
+        Y = torch.cat(Y, dim=1)
+        Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_i.shape)
+
+        return (self.swish(x_i @ self.W_G) * Y) @ self.W_O, r_is

@@ -58,3 +58,18 @@ class RetNet(nn.Module):
             x_n = self.ffns[i](self.layer_norms_2[i](y_n)) + y_n
         
         return x_n, s_ns
+    
+    def forward_chunkwise(self, x_i, r_i_1s, i):
+        """
+        X: (batch_size, sequence_length, hidden_size)
+        r_i_1s: list of lists of tensors of shape (batch_size, hidden_size // heads, hidden_size // heads)
+
+        """
+        r_is = []
+        for j in range(self.layers):
+            o_i, r_i = self.retentions[j].forward_chunkwise(self.layer_norms_1[j](x_i), r_i_1s[j], i)
+            y_i = o_i + x_i
+            r_is.append(r_i)
+            x_i = self.ffns[j](self.layer_norms_2[j](y_i)) + y_i
+        
+        return x_i, r_is
