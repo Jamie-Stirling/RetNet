@@ -4,7 +4,7 @@ for Large Language Models](https://arxiv.org/pdf/2307.08621.pdf) in PyTorch.
 
 ## About this repository
 This is a minimal, pure pytorch implementation of RetNet. RetNet paper: [Retentive Network: A Successor to Transformer
-for Large Language Models](https://arxiv.org/pdf/2307.08621.pdf) in PyTorch.
+for Large Language Models](https://arxiv.org/pdf/2307.08621.pdf).
 
 The contributors(s) to this repository are not authors of the original paper. All credit for the idea and formulation of RetNet goes to the original authors.
 
