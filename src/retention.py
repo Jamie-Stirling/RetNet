@@ -65,6 +65,37 @@ class SimpleRetention(nn.Module):
         
         return (Q @ s_n), s_n
     
+    def forward_chunkwise(self, x_i, r_i_1, i):
+        """
+        Chunkwise representation of the retention mechanism.
+        x_i: (batch_size, chunk_size, hidden_size)
+        r_i_1: (batch_size, hidden_size, hidden_size)
+        """
+        batch, chunk_size, _ = x_i.shape
+        D = self._get_D(chunk_size)
+
+        Q = (x_i @ self.W_Q)
+        K = (x_i @ self.W_K)
+
+        Q = self.xpos(Q, i * chunk_size)
+        K = self.xpos(K, i * chunk_size, downscale=True)
+
+        V = x_i @ self.W_V
+        
+        r_i =(K.transpose(-1, -2) @ (V * D[-1].view(1, chunk_size, 1))) + (self.gamma ** chunk_size) * r_i_1
+
+        inner_chunk = ((Q @ K.transpose(-1, -2)) * D.unsqueeze(0)) @ V
+        
+        #e[i,j] = gamma ** (i+1)
+        e = torch.zeros(batch, chunk_size, 1)
+        
+        for _i in range(chunk_size):
+            e[:, _i, :] = self.gamma ** (_i + 1)
+        
+        cross_chunk = (Q @ r_i_1) * e
+        
+        return inner_chunk + cross_chunk, r_i
+
     def _get_D(self, sequence_length):
         n = torch.arange(sequence_length).unsqueeze(1)
         m = torch.arange(sequence_length).unsqueeze(0)
@@ -75,6 +106,9 @@ class SimpleRetention(nn.Module):
         D[D != D] = 0
 
         return D
+    
+
+
 class MultiScaleRetention(nn.Module):
     def __init__(self, hidden_size, heads):
         """
@@ -131,7 +165,31 @@ class MultiScaleRetention(nn.Module):
             Y.append(y)
             s_ns.append(s_n)
         
-        Y = torch.cat(Y, dim=1)
+        Y = torch.cat(Y, dim=2)
         Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_n.shape)
         
         return (self.swish(x_n @ self.W_G) * Y) @ self.W_O, s_ns
+
+    def forward_chunkwise(self, x_i, r_i_1s, i):
+        """
+        chunkwise representation of the multi-scale retention mechanism
+        x_i: (batch_size, chunk_size, hidden_size)
+        r_i_1s: (batch_size, heads, head_size, head_size)
+        """
+        batch, chunk_size, _ = x_i.shape
+
+        # apply each individual retention mechanism to a slice of X
+        Y = []
+        r_is = []
+        for j in range(self.heads):
+            y, r_i = self.retentions[j].forward_chunkwise(
+                x_i[:, :, j*self.head_size:(j+1)*self.head_size], r_i_1s[j], i
+                )
+            Y.append(y)
+            r_is.append(r_i)
+        
+        
+        Y = torch.cat(Y, dim=2)
+        Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_i.shape)
+
+        return (self.swish(x_i @ self.W_G) * Y) @ self.W_O, r_is

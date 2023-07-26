@@ -14,13 +14,12 @@ The purpose of this repository is to aid scientific and technological understand
 * Single-scale and MultiScale retention:
   - parallel paradigm
   - recurrent paradigm
+  - chunkwise paradigm
 * Multi-layer retentive network with FFN and LayerNorm
   - parallel paradigm
   - recurrent paradigm
+  - chunkwise paradigm
 * Causal language model (CLM) built on top of the the retentive network
-
-## Features coming soon:
-* chunkwise recurrent paradigm (for efficient inference)
 
 ## Usage and Examples:
 * See scripts prefixed with `test_` for examples of basic usage
