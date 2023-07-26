@@ -138,7 +138,7 @@ class TestRetNet(unittest.TestCase):
         Y_chunkwise = torch.concat(Y_chunkwise, dim=1)
 
         self.assertTrue(torch.allclose(Y_parallel, Y_recurrent, atol=1e-5))
-        self.assertTrue(torch.allclose(Y_parallel, Y_chunkwise, atol=1e-5)) # fails
+        self.assertTrue(torch.allclose(Y_parallel, Y_chunkwise, atol=1e-5))
 
 if __name__ == "__main__":
     unittest.main()
