@@ -13,7 +13,7 @@ class TestRetention(unittest.TestCase):
         """
         batch_size = 4
         sequence_length = 12
-        hidden_size = 32
+        hidden_size = 6
         chunk_size = 4
 
         gamma = 0.9
@@ -38,20 +38,24 @@ class TestRetention(unittest.TestCase):
             y_i, r_i = sr.forward_chunkwise(X[:, i*chunk_size:(i+1)*chunk_size, :], r_n_1, i)
             Y_chunkwise.append(y_i)
             r_n_1 = r_i
+            
         
         Y_chunkwise = torch.concat(Y_chunkwise, dim=1)
 
+
         assert torch.allclose(Y_parallel, Y_recurrent, atol=1e-5)
-        assert torch.allclose(Y_parallel, Y_chunkwise, atol=1e-5) # fails
+        assert torch.allclose(Y_parallel, Y_chunkwise, atol=1e-5)
+      
   
     def test_multiscale(self):
         """
         verify that the three implementations of MultiScaleRetention are identical
         """
         batch_size = 2
-        hidden_size = 36
-        sequence_length = 5
+        hidden_size = 6
+        sequence_length = 12
         heads = 3
+        chunk_size = 2
 
         X = torch.rand(batch_size, sequence_length, hidden_size)
         retention = MultiScaleRetention(hidden_size, heads)
@@ -75,8 +79,8 @@ class TestRetention(unittest.TestCase):
             for _ in range(heads)
         ]
         Y_chunkwise = []
-        for i in range(sequence_length):
-            y_i, r_i = retention.forward_chunkwise(X[:, i:i+1, :], r_n_1s, i)
+        for i in range(sequence_length // chunk_size):
+            y_i, r_i = retention.forward_chunkwise(X[:, i*chunk_size:(i+1)*chunk_size, :], r_n_1s, i)
             Y_chunkwise.append(y_i)
             r_n_1s = r_i
 

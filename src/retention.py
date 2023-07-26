@@ -81,19 +81,19 @@ class SimpleRetention(nn.Module):
         K = self.xpos(K, i * chunk_size, downscale=True)
 
         V = x_i @ self.W_V
-
-        r_i = self.gamma ** chunk_size * r_i_1 + (K.transpose(-1, -2) @ V)
+        
+        r_i =(K.transpose(-1, -2) @ (V * D[-1].view(1, chunk_size, 1))) + (self.gamma ** chunk_size) * r_i_1
 
         inner_chunk = ((Q @ K.transpose(-1, -2)) * D.unsqueeze(0)) @ V
-        cross_chunk = (Q @ r_i)
-
-        #e[i,j] = gamma ** (i+1)
-        e = torch.zeros_like(cross_chunk)
-        for _i in range(chunk_size):
-            e[_i, :] = self.gamma ** (_i+1)
         
-        cross_chunk = cross_chunk * e
-
+        #e[i,j] = gamma ** (i+1)
+        e = torch.zeros(batch, chunk_size, 1)
+        
+        for _i in range(chunk_size):
+            e[:, _i, :] = self.gamma ** (_i + 1)
+        
+        cross_chunk = (Q @ r_i_1) * e
+        
         return inner_chunk + cross_chunk, r_i
 
     def _get_D(self, sequence_length):
@@ -106,6 +106,7 @@ class SimpleRetention(nn.Module):
         D[D != D] = 0
 
         return D
+    
 
 
 class MultiScaleRetention(nn.Module):
@@ -164,7 +165,7 @@ class MultiScaleRetention(nn.Module):
             Y.append(y)
             s_ns.append(s_n)
         
-        Y = torch.cat(Y, dim=1)
+        Y = torch.cat(Y, dim=2)
         Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_n.shape)
         
         return (self.swish(x_n @ self.W_G) * Y) @ self.W_O, s_ns
@@ -187,7 +188,8 @@ class MultiScaleRetention(nn.Module):
             Y.append(y)
             r_is.append(r_i)
         
-        Y = torch.cat(Y, dim=1)
+        
+        Y = torch.cat(Y, dim=2)
         Y = self.group_norm(Y.reshape(-1, self.hidden_size)).reshape(x_i.shape)
 
         return (self.swish(x_i @ self.W_G) * Y) @ self.W_O, r_is
