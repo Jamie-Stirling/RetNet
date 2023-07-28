@@ -19,7 +19,7 @@ class RetNet(nn.Module):
         self.ffns = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(hidden_dim, ffn_size),
-                nn.SiLU(),
+                nn.GELU(),
                 nn.Linear(ffn_size, hidden_dim)
             )
             for _ in range(layers)
