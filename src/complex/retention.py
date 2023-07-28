@@ -43,7 +43,7 @@ class SimpleRetention(nn.Module):
         X: (batch_size, sequence_length, hidden_size)
         """
         sequence_length = X.shape[1]
-        D = self._get_D(sequence_length)
+        D = self._get_D(sequence_length).to(X.device)
 
         if X.dtype != self.complex_type:
             X = torch.complex(X, torch.zeros_like(X)).to(self.complex_type)
