@@ -4,15 +4,16 @@ import torch.nn as nn
 from retention import MultiScaleRetention
 
 class RetNet(nn.Module):
-    def __init__(self, layers, hidden_dim, ffn_size, heads):
+    def __init__(self, layers, hidden_dim, ffn_size, heads, double_v_dim=False):
         super(RetNet, self).__init__()
         self.layers = layers
         self.hidden_dim = hidden_dim
         self.ffn_size = ffn_size
         self.heads = heads
+        self.v_dim = hidden_dim * 2 if double_v_dim else hidden_dim
 
         self.retentions = nn.ModuleList([
-            MultiScaleRetention(hidden_dim, heads)
+            MultiScaleRetention(hidden_dim, heads, double_v_dim)
             for _ in range(layers)
         ])
         self.ffns = nn.ModuleList([
