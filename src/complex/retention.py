@@ -43,7 +43,7 @@ class SimpleRetention(nn.Module):
         X: (batch_size, sequence_length, hidden_size)
         """
         sequence_length = X.shape[1]
-        D = self._get_D(sequence_length)
+        D = self._get_D(sequence_length).to(X.device)
 
         if X.dtype != self.complex_type:
             X = torch.complex(X, torch.zeros_like(X)).to(self.complex_type)
@@ -95,13 +95,15 @@ class SimpleRetention(nn.Module):
         return (Q.unsqueeze(1) @ s_n).squeeze(1), s_n
     
     def _get_D(self, sequence_length):
-        # D[n,m] = gamma ** (n - m) if n >= m else 0
-        D = torch.zeros((sequence_length, sequence_length), dtype=self.real_type, requires_grad=False)
-        for n in range(sequence_length):
-            for m in range(sequence_length):
-                if n >= m:
-                    D[n, m] = self.gamma ** (n - m)
-        return D.to(self.complex_type)
+        n = torch.arange(sequence_length).unsqueeze(1)
+        m = torch.arange(sequence_length).unsqueeze(0)
+        
+        # Broadcast self.gamma ** (n - m) with appropriate masking to set values where n < m to 0
+        D = (self.gamma ** (n - m)) * (n >= m).float()  #this results in some NaN when n is much larger than m
+        # fill the NaN with 0
+        D[D != D] = 0
+        
+        return D
 
 class MultiScaleRetention(nn.Module):
     def __init__(self, hidden_size, heads, precision="single"):
