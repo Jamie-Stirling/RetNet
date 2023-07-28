@@ -6,7 +6,7 @@ import torch.nn as nn
 from xpos_relative_position import XPOS
 
 class SimpleRetention(nn.Module):
-    def __init__(self, hidden_size, gamma, double_v_dim=False):
+    def __init__(self, hidden_size, gamma, head_size=None, double_v_dim=False):
         """
         Simple retention mechanism based on the paper
         "Retentive Network: A Successor to Transformer for Large Language Models"[https://arxiv.org/pdf/2307.08621.pdf]
@@ -14,14 +14,18 @@ class SimpleRetention(nn.Module):
         super(SimpleRetention, self).__init__()
 
         self.hidden_size = hidden_size
-        self.v_dim = hidden_size * 2 if double_v_dim else hidden_size
+        if head_size is None:
+            head_size = hidden_size
+        self.head_size = head_size
+
+        self.v_dim = head_size * 2 if double_v_dim else head_size
         self.gamma = gamma
 
-        self.W_Q = nn.Parameter(torch.randn(hidden_size, hidden_size) / hidden_size)
-        self.W_K = nn.Parameter(torch.randn(hidden_size, hidden_size) / hidden_size)
+        self.W_Q = nn.Parameter(torch.randn(hidden_size, head_size) / hidden_size)
+        self.W_K = nn.Parameter(torch.randn(hidden_size, head_size) / hidden_size)
         self.W_V = nn.Parameter(torch.randn(hidden_size, self.v_dim) / hidden_size)
         
-        self.xpos = XPOS(hidden_size)
+        self.xpos = XPOS(head_size)
 
     def forward(self, X):
         """
@@ -131,7 +135,7 @@ class MultiScaleRetention(nn.Module):
         self.group_norm = nn.GroupNorm(heads, self.v_dim)
 
         self.retentions = nn.ModuleList([
-            SimpleRetention(self.head_size, gamma, double_v_dim) for gamma in self.gammas
+            SimpleRetention(self.hidden_size, gamma, self.head_size, double_v_dim) for gamma in self.gammas
         ])
 
     def forward(self, X):
@@ -139,10 +143,10 @@ class MultiScaleRetention(nn.Module):
         parallel representation of the multi-scale retention mechanism
         """
 
-        # apply each individual retention mechanism to a slice of X
+        # apply each individual retention mechanism to X
         Y = []
         for i in range(self.heads):
-            Y.append(self.retentions[i](X[:, :, i*self.head_size:(i+1)*self.head_size]))
+            Y.append(self.retentions[i](X))
         
         Y = torch.cat(Y, dim=2)
         Y_shape = Y.shape
@@ -163,7 +167,7 @@ class MultiScaleRetention(nn.Module):
         s_ns = []
         for i in range(self.heads):
             y, s_n = self.retentions[i].forward_recurrent(
-                x_n[:, :, i*self.head_size:(i+1)*self.head_size], s_n_1s[i], n
+                x_n[:, :, :], s_n_1s[i], n
                 )
             Y.append(y)
             s_ns.append(s_n)
@@ -187,7 +191,7 @@ class MultiScaleRetention(nn.Module):
         r_is = []
         for j in range(self.heads):
             y, r_i = self.retentions[j].forward_chunkwise(
-                x_i[:, :, j*self.head_size:(j+1)*self.head_size], r_i_1s[j], i
+                x_i[:, :, :], r_i_1s[j], i
                 )
             Y.append(y)
             r_is.append(r_i)
