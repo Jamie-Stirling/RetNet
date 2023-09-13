@@ -33,7 +33,7 @@ class SimpleRetention(nn.Module):
         X: (batch_size, sequence_length, hidden_size)
         """
         sequence_length = X.shape[1]
-        D = self._get_D(sequence_length)
+        D = self._get_D(sequence_length).to(self.W_Q.device)
 
         Q = (X @ self.W_Q)
         K = (X @ self.W_K)
