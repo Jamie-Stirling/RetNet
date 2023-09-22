@@ -126,8 +126,11 @@ class MultiScaleRetention(nn.Module):
         assert hidden_size % heads == 0, "hidden_size must be divisible by heads"
         self.head_size = hidden_size // heads
         self.head_v_dim = hidden_size * 2 if double_v_dim else hidden_size
-        
-        self.gammas = (1 - torch.exp(torch.linspace(math.log(1/32), math.log(1/512), heads))).detach().cpu().tolist()
+
+        self.gammas = []
+        for n in range(heads):
+            g = 1 - 2**(-5-n)
+            self.gammas.append(g)
 
         self.swish = lambda x: x * torch.sigmoid(x)
         self.W_G = nn.Parameter(torch.randn(hidden_size, self.v_dim) / hidden_size)
