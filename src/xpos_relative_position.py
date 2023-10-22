@@ -15,6 +15,9 @@ def rotate_every_two(x):
     x1 = x[:, :, ::2]
     x2 = x[:, :, 1::2]
     x = torch.stack((-x2, x1), dim=-1)
+    if x.shape[-1]%2 == 1:
+        # fill last dim with zero if hidden_size is odd
+        x2 = torch.concat((x2, torch.zeros_like(x2[:, :, :1])), dim=-1)
     return x.flatten(-2)  # in einsum notation: rearrange(x, '... d j -> ... (d j)')\
 
 def duplicate_interleave(m):
@@ -30,7 +33,7 @@ def duplicate_interleave(m):
 def apply_rotary_pos_emb(x, sin, cos, scale=1):
     sin, cos = map(lambda t: duplicate_interleave(t * scale), (sin, cos))
     # einsum notation for lambda t: repeat(t[offset:x.shape[1]+offset,:], "n d -> () n () (d j)", j=2)
-    return (x * cos) + (rotate_every_two(x) * sin)
+    return (x * cos[:, :x.shape[-1]]) + (rotate_every_two(x) * sin)[:, :, :x.shape[-1]]
 
 
 class XPOS(nn.Module):
